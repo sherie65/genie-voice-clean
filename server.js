@@ -2,29 +2,26 @@ require("dotenv").config();
 const express = require("express");
 const bodyParser = require("body-parser");
 const twilio = require("twilio");
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 
 const { createState, handleInput } = require("./genie");
 
 const app = express();
 app.use(bodyParser.urlencoded({ extended: false }));
 
-/* EMAIL */
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD
-  }
-});
+/* EMAIL (RESEND) */
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-async function sendEmail(subject, body) {
-  await transporter.sendMail({
-    from: `Genie AI Receptionist <${process.env.EMAIL_USER}>`,
-    to: process.env.EMAIL_USER,
-    subject,
-    text: body
-  });
+function sendEmail(subject, body) {
+  // 🔥 fire-and-forget (never block Twilio)
+  resend.emails
+    .send({
+      from: "Genie <onboarding@resend.dev>",
+      to: [process.env.EMAIL_USER],
+      subject,
+      text: body
+    })
+    .catch(err => console.error("Email failed:", err.message));
 }
 
 /* SESSIONS */
@@ -50,24 +47,17 @@ app.post("/voice", async (req, res) => {
 
   const result = await handleInput(input, state);
 
-  /* ===== END CALL (SINGLE, FINAL PATH) ===== */
+  /* ===== END CALL (SINGLE EXIT) ===== */
   if (result.endCall) {
-    // ✅ Failsafe summary email if name + phone captured
-    if (
-      result.sideEffects?.sendEmail ||
-      (state.nameFormatted && state.phone)
-    ) {
-if (
-  result.sideEffects?.sendEmail ||
-  (state.nameFormatted && state.phone)
-) {
-  sendEmail(
-    "Call Summary (Call Ended)",
-    `
+    // ✅ GUARANTEED SUMMARY if name + phone captured
+    if (state.nameFormatted && state.phone) {
+      sendEmail(
+        "Call Summary",
+        `
 CALL SUMMARY
 
-Name: ${state.nameFormatted || "Not provided"}
-Phone: ${state.phone || "Not provided"}
+Name: ${state.nameFormatted}
+Phone: ${state.phone}
 
 Project:
 ${state.projectDetails || "N/A"}
@@ -79,19 +69,15 @@ Unanswered Questions:
 ${state.unansweredQuestions.join("\n") || "None"}
 
 NOTE:
-Call ended.
+Call ended or disconnected.
 `
-  ).catch(err => console.error("Email failed:", err.message));
-}
+      );
+    }
 
-} // ← ✅ ADD THIS LINE (closes the sendEmail IF)
-
-   twiml.say(
-  { voice: "Polly.Joanna" },
-  result.reply || "Thank you for calling. Goodbye."
-);
-
-
+    twiml.say(
+      { voice: "Polly.Joanna" },
+      result.reply || "Thank you for calling. Goodbye."
+    );
     twiml.hangup();
     endSession(callSid);
     return res.type("text/xml").send(twiml.toString());
@@ -102,7 +88,7 @@ Call ended.
     action: "/voice",
     method: "POST",
     input: "speech dtmf",
-    speechTimeout: 1,
+    speechTimeout: "auto",
     timeout: 4,
     bargeIn: true
   });
@@ -117,4 +103,5 @@ Call ended.
 app.listen(3000, () => {
   console.log("🎧 Voice server running on port 3000");
 });
+
 

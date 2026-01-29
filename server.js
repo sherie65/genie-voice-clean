@@ -51,6 +51,11 @@ app.post("/voice", async (req, res) => {
   if (result.endCall) {
     // ✅ GUARANTEED SUMMARY if name + phone captured
     if (state.nameFormatted && state.phone) {
+      console.log("📧 Attempting to send summary email", {
+  name: state.nameFormatted,
+  phone: state.phone
+});
+
       sendEmail(
         "Call Summary",
         `

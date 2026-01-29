@@ -9,12 +9,16 @@ const { createState, handleInput } = require("./genie");
 const app = express();
 app.use(bodyParser.urlencoded({ extended: false }));
 
-/* EMAIL (RESEND) */
+/* =========================
+   EMAIL (RESEND)
+========================= */
+
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+// 🔍 DIAGNOSTIC: confirm env var exists at runtime
 console.log(
   "🔑 RESEND_API_KEY present:",
-  !!process.env.RESEND_API_KEY,
-  process.env.RESEND_API_KEY?.slice(0, 5)
+  !!process.env.RESEND_API_KEY
 );
 
 function sendEmail(subject, body) {
@@ -22,63 +26,56 @@ function sendEmail(subject, body) {
   resend.emails
     .send({
       from: "Genie <onboarding@resend.dev>",
-   to: ["sherene@rancedesigns.com"],
+      to: ["sherene@rancedesigns.com"],
       subject,
       text: body
     })
-    .catch(err => console.error("Email failed:", err));
+    .then(() => console.log("📧 Email sent"))
+    .catch(err => console.error("❌ Email failed:", err));
 }
-// 🔎 DEBUG: confirm env is loaded
-console.log(
-  "🔑 RESEND_API_KEY present:",
-  !!process.env.RESEND_API_KEY
-);
 
-/* TEST EMAIL ROUTE */
+/* =========================
+   TEMP TEST ROUTE (IMPORTANT)
+   Visit:
+   https://genie-voice.onrender.com/test-email
+========================= */
+
 app.get("/test-email", async (req, res) => {
   try {
     await resend.emails.send({
       from: "Genie <onboarding@resend.dev>",
-      to: ["sherene@rancedesigns.com"], // 👈 hardcode for now
-      subject: "Resend Test Email",
-      text: "If you received this, Resend works 🎉"
+      to: ["sherene@rancedesigns.com"],
+      subject: "Resend test from Render",
+      text: "If you got this email, Resend works from Render."
     });
 
-    res.send("✅ Test email sent successfully");
+    console.log("✅ Test email sent");
+    res.send("✅ Email sent");
   } catch (err) {
     console.error("❌ Test email failed:", err);
-    res.status(500).send("❌ Test email failed");
+    res.status(500).send("❌ Email failed: " + err.message);
   }
 });
 
-/* SESSIONS */
+/* =========================
+   SESSIONS
+========================= */
+
 const sessions = new Map();
+
 function getSession(sid) {
   if (!sessions.has(sid)) sessions.set(sid, createState());
   return sessions.get(sid);
 }
+
 function endSession(sid) {
   sessions.delete(sid);
 }
-app.get("/test-email", async (req, res) => {
-  console.log("🧪 Test email route hit");
 
-  try {
-    await resend.emails.send({
-      from: "Genie <onboarding@resend.dev>",
-      to: ["sherene@rancedesigns.com"], // hardcoded on purpose
-      subject: "Resend Test Email",
-      text: "If you got this, Resend works on Render."
-    });
+/* =========================
+   TWILIO WEBHOOK
+========================= */
 
-    res.send("✅ Test email sent");
-  } catch (err) {
-    console.error("❌ Test email failed:", err);
-    res.status(500).send("Email failed");
-  }
-});
-
-/* WEBHOOK */
 app.post("/voice", async (req, res) => {
   const twiml = new twilio.twiml.VoiceResponse();
   const callSid = req.body.CallSid;
@@ -91,14 +88,10 @@ app.post("/voice", async (req, res) => {
 
   const result = await handleInput(input, state);
 
-  /* ===== END CALL (SINGLE EXIT) ===== */
+  /* ===== END CALL ===== */
   if (result.endCall) {
-    // ✅ GUARANTEED SUMMARY if name + phone captured
     if (state.nameFormatted && state.phone) {
-      console.log("📧 Attempting to send summary email", {
-  name: state.nameFormatted,
-  phone: state.phone
-});
+      console.log("📧 Attempting call summary email");
 
       sendEmail(
         "Call Summary",
@@ -132,7 +125,7 @@ Call ended or disconnected.
     return res.type("text/xml").send(twiml.toString());
   }
 
-  /* ===== KEEP CALL OPEN ===== */
+  /* ===== CONTINUE CALL ===== */
   const gather = twiml.gather({
     action: "/voice",
     method: "POST",
@@ -149,8 +142,15 @@ Call ended or disconnected.
   res.type("text/xml").send(twiml.toString());
 });
 
-app.listen(3000, () => {
-  console.log("🎧 Voice server running on port 3000");
+/* =========================
+   START SERVER
+========================= */
+
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log(`🎧 Voice server running on port ${PORT}`);
 });
+
 
 

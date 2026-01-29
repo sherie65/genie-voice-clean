@@ -13,8 +13,10 @@ app.use(bodyParser.urlencoded({ extended: false }));
 const resend = new Resend(process.env.RESEND_API_KEY);
 console.log(
   "🔑 RESEND_API_KEY present:",
-  !!process.env.RESEND_API_KEY
+  !!process.env.RESEND_API_KEY,
+  process.env.RESEND_API_KEY?.slice(0, 5)
 );
+
 function sendEmail(subject, body) {
   // 🔥 fire-and-forget (never block Twilio)
   resend.emails

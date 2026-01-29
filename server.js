@@ -16,7 +16,7 @@ function sendEmail(subject, body) {
   // 🔥 fire-and-forget (never block Twilio)
   resend.emails
     .send({
-      from: "Genie <sherene@rancedesigns.com>",
+      from: "Genie <onboarding@resend.dev>",
    to: ["sherene@rancedesigns.com"],
       subject,
       text: body

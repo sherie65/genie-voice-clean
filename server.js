@@ -17,11 +17,11 @@ function sendEmail(subject, body) {
   resend.emails
     .send({
       from: "Genie <onboarding@resend.dev>",
-      to: [process.env.EMAIL_USER],
+   to: ["genie.receptionist@gmail.com"],
       subject,
       text: body
     })
-    .catch(err => console.error("Email failed:", err.message));
+    .catch(err => console.error("Email failed:", err));
 }
 
 /* SESSIONS */

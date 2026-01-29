@@ -1,0 +1,26 @@
+{
+  "name": "genie-voice",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@deepgram/sdk": "^4.11.3",
+    "body-parser": "^2.2.2",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "node-record-lpcm16": "^1.0.1",
+    "nodemailer": "^7.0.12",
+    "openai": "^6.15.0",
+    "resend": "^6.9.1",
+    "say": "^0.16.0",
+    "twilio": "^5.11.2",
+    "ws": "^8.19.0"
+  }
+}

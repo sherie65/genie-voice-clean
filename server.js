@@ -11,7 +11,10 @@ app.use(bodyParser.urlencoded({ extended: false }));
 
 /* EMAIL (RESEND) */
 const resend = new Resend(process.env.RESEND_API_KEY);
-
+console.log(
+  "🔑 RESEND_API_KEY present:",
+  !!process.env.RESEND_API_KEY
+);
 function sendEmail(subject, body) {
   // 🔥 fire-and-forget (never block Twilio)
   resend.emails
@@ -23,6 +26,28 @@ function sendEmail(subject, body) {
     })
     .catch(err => console.error("Email failed:", err));
 }
+// 🔎 DEBUG: confirm env is loaded
+console.log(
+  "🔑 RESEND_API_KEY present:",
+  !!process.env.RESEND_API_KEY
+);
+
+/* TEST EMAIL ROUTE */
+app.get("/test-email", async (req, res) => {
+  try {
+    await resend.emails.send({
+      from: "Genie <onboarding@resend.dev>",
+      to: ["sherene@rancedesigns.com"], // 👈 hardcode for now
+      subject: "Resend Test Email",
+      text: "If you received this, Resend works 🎉"
+    });
+
+    res.send("✅ Test email sent successfully");
+  } catch (err) {
+    console.error("❌ Test email failed:", err);
+    res.status(500).send("❌ Test email failed");
+  }
+});
 
 /* SESSIONS */
 const sessions = new Map();
@@ -33,6 +58,23 @@ function getSession(sid) {
 function endSession(sid) {
   sessions.delete(sid);
 }
+app.get("/test-email", async (req, res) => {
+  console.log("🧪 Test email route hit");
+
+  try {
+    await resend.emails.send({
+      from: "Genie <onboarding@resend.dev>",
+      to: ["sherene@rancedesigns.com"], // hardcoded on purpose
+      subject: "Resend Test Email",
+      text: "If you got this, Resend works on Render."
+    });
+
+    res.send("✅ Test email sent");
+  } catch (err) {
+    console.error("❌ Test email failed:", err);
+    res.status(500).send("Email failed");
+  }
+});
 
 /* WEBHOOK */
 app.post("/voice", async (req, res) => {

@@ -1,18 +1,31 @@
 require("dotenv").config();
+
+/* ================================
+   DNS FIX (IMPORTANT FOR RENDER)
+================================ */
+const dns = require("dns");
+dns.setDefaultResultOrder("ipv4first");
+
+/* ================================
+   IMPORTS
+================================ */
 const express = require("express");
 const bodyParser = require("body-parser");
 const twilio = require("twilio");
 const { Resend } = require("resend");
+const https = require("https");
 
 const { createState, handleInput } = require("./genie");
 
+/* ================================
+   APP SETUP
+================================ */
 const app = express();
 app.use(bodyParser.urlencoded({ extended: false }));
 
-/* =========================
+/* ================================
    EMAIL (RESEND)
-========================= */
-
+================================ */
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // 🔍 DIAGNOSTIC: confirm env var exists at runtime
@@ -26,20 +39,39 @@ function sendEmail(subject, body) {
   resend.emails
     .send({
       from: "Genie <onboarding@resend.dev>",
-      to: ["sherene@rancedesigns.com"],
+      to: ["sherene@rancedesigns.com"], // TEMP hardcoded for testing
       subject,
       text: body
     })
-    .then(() => console.log("📧 Email sent"))
-    .catch(err => console.error("❌ Email failed:", err));
+    .catch(err => {
+      console.error("❌ Email failed:", err);
+    });
 }
 
-/* =========================
-   TEMP TEST ROUTE (IMPORTANT)
+/* ================================
+   NET TEST ROUTE (OUTBOUND CHECK)
+   Visit:
+   https://genie-voice.onrender.com/net-test
+================================ */
+app.get("/net-test", (req, res) => {
+  const r = https.get("https://example.com", (resp) => {
+    res.status(200).send(`Outbound OK. status=${resp.statusCode}`);
+  });
+
+  r.on("error", (e) => {
+    res.status(500).send(`Outbound failed: ${e.message}`);
+  });
+
+  r.setTimeout(8000, () => {
+    r.destroy(new Error("timeout"));
+  });
+});
+
+/* ================================
+   EMAIL TEST ROUTE
    Visit:
    https://genie-voice.onrender.com/test-email
-========================= */
-
+================================ */
 app.get("/test-email", async (req, res) => {
   try {
     await resend.emails.send({
@@ -57,14 +89,15 @@ app.get("/test-email", async (req, res) => {
   }
 });
 
-/* =========================
+/* ================================
    SESSIONS
-========================= */
-
+================================ */
 const sessions = new Map();
 
 function getSession(sid) {
-  if (!sessions.has(sid)) sessions.set(sid, createState());
+  if (!sessions.has(sid)) {
+    sessions.set(sid, createState());
+  }
   return sessions.get(sid);
 }
 
@@ -72,10 +105,9 @@ function endSession(sid) {
   sessions.delete(sid);
 }
 
-/* =========================
-   TWILIO WEBHOOK
-========================= */
-
+/* ================================
+   TWILIO VOICE WEBHOOK
+================================ */
 app.post("/voice", async (req, res) => {
   const twiml = new twilio.twiml.VoiceResponse();
   const callSid = req.body.CallSid;
@@ -91,8 +123,7 @@ app.post("/voice", async (req, res) => {
   /* ===== END CALL ===== */
   if (result.endCall) {
     if (state.nameFormatted && state.phone) {
-      console.log("📧 Attempting call summary email");
-
+      console.log("📧 Attempting to send summary email");
       sendEmail(
         "Call Summary",
         `
@@ -125,7 +156,7 @@ Call ended or disconnected.
     return res.type("text/xml").send(twiml.toString());
   }
 
-  /* ===== CONTINUE CALL ===== */
+  /* ===== KEEP CALL OPEN ===== */
   const gather = twiml.gather({
     action: "/voice",
     method: "POST",
@@ -142,15 +173,13 @@ Call ended or disconnected.
   res.type("text/xml").send(twiml.toString());
 });
 
-/* =========================
-   START SERVER
-========================= */
-
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-  console.log(`🎧 Voice server running on port ${PORT}`);
+/* ================================
+   START SERVER (MUST BE LAST)
+================================ */
+app.listen(3000, () => {
+  console.log("🎧 Voice server running on port 3000");
 });
+
 
 
 
